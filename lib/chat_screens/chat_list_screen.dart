@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'chat_detail_screen.dart';
-
-// import '../screens/login_screen.dart';
+import 'menu_bar_chat_list_screen.dart'; // Import file menu vừa tạo
 
 String truncateMessage(String text, int limit) {
   if (text.length <= limit) {
@@ -37,60 +36,30 @@ class ChatListScreen extends StatelessWidget {
       },
       {
         'name': 'Viettel Telecom',
-        'message': 'Quy khach da thanh toán thanh cong hoa den cuoc thang.',
+        'message': 'Quy khach da thanh toan thanh cong hoa den cuoc thang.',
         'time': '28/08',
         'unread': 'false',
       },
     ];
 
-    // Sử dụng PopScope để chặn nút back của Android
     return PopScope(
-      canPop:
-          false, // Chặn không cho tự động back về màn hình trước (login_screen)
-      // onPopInvokedWithResult: (didPop, result) async {
-      //   if (didPop) {
-      //     return;
-      //   }
-
-      //   // Tùy chọn 1: Hiển thị hộp thoại xác nhận đăng xuất / thoát ứng dụng
-      //   final bool? shouldLogout = await showDialog<bool>(
-      //     context: context,
-      //     builder: (context) => AlertDialog(
-      //       title: const Text('Đăng xuất'),
-      //       content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
-      //       actions: [
-      //         TextButton(
-      //           onPressed: () => Navigator.of(context).pop(false),
-      //           child: const Text('Hủy'),
-      //         ),
-      //         TextButton(
-      //           onPressed: () => Navigator.of(context).pop(true),
-      //           child: const Text(
-      //             'Đăng xuất',
-      //             style: TextStyle(color: Colors.red),
-      //           ),
-      //         ),
-      //       ],
-      //     ),
-      //   );
-
-      //   // Nếu người dùng đồng ý đăng xuất, điều hướng sạch về LoginScreen và xóa hết lịch sử route cũ
-      //   if (shouldLogout == true && context.mounted) {
-      //     Navigator.pushAndRemoveUntil(
-      //       context,
-      //       MaterialPageRoute(builder: (context) => const LoginScreen()),
-      //       (route) => false, // Xóa sạch toàn bộ stack màn hình phía sau
-      //     );
-      //   }
-      // },
+      canPop: false,
       child: Scaffold(
+        // Tích hợp Menu vào bên trái Scaffold
+        drawer: const MenuBarChatListScreen(),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () {
-              // Xử lý menu mở rộng nếu cần
+          // Sử dụng Builder để lấy context chính xác mở Drawer
+          leading: Builder(
+            builder: (context) {
+              return IconButton(
+                icon: const Icon(Icons.menu, color: Colors.black),
+                onPressed: () {
+                  Scaffold.of(context).openDrawer();
+                  // Mở menu trượt từ trái sang
+                },
+              );
             },
           ),
           title: const Text(
