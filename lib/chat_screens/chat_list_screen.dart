@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import 'chat_detail_screen.dart';
 import 'menu_bar_chat_list_screen.dart'; // Import file menu vừa tạo
@@ -120,102 +121,123 @@ class ChatListScreen extends StatelessWidget {
             final chat = chatList[index];
             final bool isUnread = chat['unread'] == 'true';
 
-            return InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ChatDetailScreen(senderName: chat['name']!),
+            return Slidable(
+              key: Key(chat['name']! + index.toString()),
+
+              // Menu xuất hiện bên phải khi vuốt sang trái
+              endActionPane: ActionPane(
+                motion: const ScrollMotion(), // Hiệu ứng trượt
+                extentRatio:
+                    0.20, // Tỷ lệ chiều rộng nút dừng lại (~80px - 90px)
+                children: [
+                  CustomSlidableAction(
+                    onPressed: (context) {
+                      // Chưa xử lý logic xóa (Chỉ giữ UI/UX)
+                    },
+                    backgroundColor: const Color(0xFFFF3B30), // Màu đỏ Delete
+                    foregroundColor: Colors.white,
+                    child: const Icon(Icons.delete_outline, size: 28),
                   ),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 10,
-                      child: Center(
-                        child: isUnread
-                            ? Container(
-                                width: 10,
-                                height: 10,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF007AFF),
-                                  shape: BoxShape.circle,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
+                ],
+              ),
+
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          ChatDetailScreen(senderName: chat['name']!),
                     ),
-                    const SizedBox(width: 10),
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Colors
-                          .primaries[index % Colors.primaries.length]
-                          .withValues(alpha: 0.2),
-                      child: Text(
-                        chat['name']![0],
-                        style: TextStyle(
-                          fontSize: 23,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              Colors.primaries[index % Colors.primaries.length],
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 10,
+                        child: Center(
+                          child: isUnread
+                              ? Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF007AFF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                chat['name']!,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: isUnread
-                                      ? FontWeight.bold
-                                      : FontWeight.w600,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              Text(
-                                chat['time']!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: isUnread
-                                      ? const Color(0xFF007AFF)
-                                      : Colors.grey,
-                                ),
-                              ),
-                            ],
+                      const SizedBox(width: 10),
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Colors
+                            .primaries[index % Colors.primaries.length]
+                            .withValues(alpha: 0.2),
+                        child: Text(
+                          chat['name']![0],
+                          style: TextStyle(
+                            fontSize: 23,
+                            fontWeight: FontWeight.bold,
+                            color: Colors
+                                .primaries[index % Colors.primaries.length],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            truncateMessage(chat['message']!, 80),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isUnread
-                                  ? Colors.black87
-                                  : Colors.grey[600],
-                              fontWeight: isUnread
-                                  ? FontWeight.w500
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  chat['name']!,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: isUnread
+                                        ? FontWeight.bold
+                                        : FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                Text(
+                                  chat['time']!,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isUnread
+                                        ? const Color(0xFF007AFF)
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              truncateMessage(chat['message']!, 80),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isUnread
+                                    ? Colors.black87
+                                    : Colors.grey[600],
+                                fontWeight: isUnread
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

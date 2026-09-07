@@ -87,7 +87,7 @@ class MenuBarChatListScreen extends StatelessWidget {
 
             // Item: Đăng xuất (Màu đỏ đặc trưng)
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              leading: const Icon(Icons.logout_sharp, color: Colors.redAccent),
               title: const Text(
                 'Đăng xuất',
                 style: TextStyle(
