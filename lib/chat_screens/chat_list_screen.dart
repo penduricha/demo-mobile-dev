@@ -73,7 +73,7 @@ class ChatListScreen extends StatelessWidget {
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.edit_square, color: Color(0xFF007AFF)),
+              icon: const Icon(Icons.edit, color: Color(0xFF007AFF)),
               onPressed: () {},
             ),
           ],
@@ -123,24 +123,20 @@ class ChatListScreen extends StatelessWidget {
 
             return Slidable(
               key: Key(chat['name']! + index.toString()),
-
-              // Menu xuất hiện bên phải khi vuốt sang trái
               endActionPane: ActionPane(
-                motion: const ScrollMotion(), // Hiệu ứng trượt
-                extentRatio:
-                    0.20, // Tỷ lệ chiều rộng nút dừng lại (~80px - 90px)
+                motion: const ScrollMotion(),
+                extentRatio: 0.20,
                 children: [
                   CustomSlidableAction(
                     onPressed: (context) {
-                      // Chưa xử lý logic xóa (Chỉ giữ UI/UX)
+                      // Logic xóa
                     },
-                    backgroundColor: const Color(0xFFFF3B30), // Màu đỏ Delete
+                    backgroundColor: const Color(0xFFFF3B30),
                     foregroundColor: Colors.white,
                     child: const Icon(Icons.delete_outline, size: 28),
                   ),
                 ],
               ),
-
               child: InkWell(
                 onTap: () {
                   Navigator.push(
@@ -151,20 +147,21 @@ class ChatListScreen extends StatelessWidget {
                     ),
                   );
                 },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                child: Container(
+                  height: 80, // 🎯 Đặt chiều cao cố định cho tất cả các item
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.center, // Căn giữa theo chiều dọc
                     children: [
+                      // Chấm xanh Unread
                       SizedBox(
                         width: 10,
                         child: Center(
                           child: isUnread
                               ? Container(
-                                  width: 10,
-                                  height: 10,
+                                  width: 8,
+                                  height: 8,
                                   decoration: const BoxDecoration(
                                     color: Color(0xFF007AFF),
                                     shape: BoxShape.circle,
@@ -174,43 +171,54 @@ class ChatListScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
+
+                      // Avatar
                       CircleAvatar(
-                        radius: 26,
+                        radius: 24, // Giảm nhẹ radius để vừa vặn khung 72px
                         backgroundColor: Colors
                             .primaries[index % Colors.primaries.length]
                             .withValues(alpha: 0.2),
                         child: Text(
                           chat['name']![0],
                           style: TextStyle(
-                            fontSize: 23,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors
                                 .primaries[index % Colors.primaries.length],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
+
+                      // Nội dung tên & tin nhắn
                       Expanded(
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment
+                              .center, // Căn giữa nội dung Column
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  chat['name']!,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: isUnread
-                                        ? FontWeight.bold
-                                        : FontWeight.w600,
-                                    color: Colors.black,
+                                Expanded(
+                                  child: Text(
+                                    chat['name']!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: isUnread
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      color: Colors.black,
+                                    ),
                                   ),
                                 ),
+                                const SizedBox(width: 8),
                                 Text(
                                   chat['time']!,
                                   style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: isUnread
                                         ? const Color(0xFF007AFF)
                                         : Colors.grey,
@@ -220,8 +228,8 @@ class ChatListScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              truncateMessage(chat['message']!, 80),
-                              maxLines: 2,
+                              chat['message']!, // Bỏ truncateMessage để TextOverflow lo
+                              maxLines: 1, // Giới hạn 1 dòng để giữ height 72px không bị bóp nghẹt
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 14,
