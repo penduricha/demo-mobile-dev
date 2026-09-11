@@ -1,4 +1,4 @@
-// Thư mục: lib/screens/screens.dart
+// Thư mục: lib/screens/export.dart
 
 export 'login_screen.dart';
 export 'create_account_screen.dart';

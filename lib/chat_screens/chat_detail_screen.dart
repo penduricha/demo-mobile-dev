@@ -4,8 +4,14 @@ class ChatMessage {
   final String id;
   final String text;
   final bool isMe;
+  final DateTime timestamp;
 
-  ChatMessage({required this.id, required this.text, required this.isMe});
+  ChatMessage({
+    required this.id,
+    required this.text,
+    required this.isMe,
+    required this.timestamp,
+  });
 }
 
 class ChatDetailScreen extends StatefulWidget {
@@ -21,17 +27,33 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
 
-  // Danh sách lưu trữ tin nhắn hiện tại
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      id: '1',
-      text: 'Your verification code is: 849201. Do not share this code with anyone for security reasons.',
-      isMe: false,
-    ),
-  ];
+  // Helper lấy thời gian Hà Nội (UTC+7)
+  static DateTime _getHanoiNow() {
+    return DateTime.now().toUtc().add(const Duration(hours: 7));
+  }
 
-  // Ngưỡng chiều cao tối đa của một bong bóng chat trước khi tự động chia làm 2 box
-  static const double _maxBubbleHeightThreshold = 180.0;
+  late final List<ChatMessage> _messages;
+
+  @override
+  void initState() {
+    super.initState();
+    final hanoiNow = _getHanoiNow();
+    _messages = [
+      ChatMessage(
+        id: '1',
+        text:
+        'Your verification code is: 849201. Do not share this code with anyone for security reasons.',
+        isMe: false,
+        timestamp: hanoiNow.subtract(const Duration(days: 2)),
+      ),
+      ChatMessage(
+        id: '2',
+        text: 'Hello, this is yesterday message.',
+        isMe: false,
+        timestamp: hanoiNow.subtract(const Duration(hours: 26)),
+      ),
+    ];
+  }
 
   @override
   void dispose() {
@@ -40,64 +62,152 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     super.dispose();
   }
 
-  // Cắt khoảng trắng ở 2 đầu (giữ nguyên xuống dòng nội dung)
   String _trimLeadingTrailing(String text) {
     return text.trim();
   }
 
-  // Kiểm tra chiều cao văn bản thực tế để quyết định cắt chuỗi
-  List<String> _splitMessageIfNeeded(String originalText, double maxWidth) {
-    final textStyle = const TextStyle(fontSize: 15);
+  String _formatTime(DateTime? dateTime) {
+    if (dateTime == null) return '';
+    final String hour = dateTime.hour.toString().padLeft(2, '0');
+    final String minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  String _formatDateHeader(DateTime timestamp) {
+    final now = _getHanoiNow();
+    final String timeStr = _formatTime(timestamp);
+
+    final DateTime todayDate = DateTime(now.year, now.month, now.day);
+    final DateTime messageDate =
+    DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final int differenceInDays = todayDate.difference(messageDate).inDays;
+
+    if (differenceInDays == 0) {
+      return '$timeStr, Today';
+    } else if (differenceInDays == 1) {
+      return '$timeStr, Yesterday';
+    } else {
+      return '$timeStr, ${timestamp.day}/${timestamp.month}/${timestamp.year}';
+    }
+  }
+
+  bool _shouldShowDateHeader(int index) {
+    if (index == 0) return true;
+
+    final currentTimestamp = _messages[index].timestamp;
+    final previousTimestamp = _messages[index - 1].timestamp;
+
+    final difference = currentTimestamp.difference(previousTimestamp).abs();
+    return difference.inHours >= 20;
+  }
+
+  /// Tính toán chiều cao tổng thể của 1 Box Chat Bubble dựa trên text và maxWidth
+  double _calculateBubbleHeight(String text, double maxContentWidth) {
     final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(fontSize: 15),
+      ),
       textDirection: TextDirection.ltr,
       maxLines: null,
-    );
+    )..layout(maxWidth: maxContentWidth);
 
-    // Tính toán chiều cao toàn bộ text
-    textPainter.text = TextSpan(text: originalText, style: textStyle);
-    textPainter.layout(maxWidth: maxWidth);
+    double contentHeight = textPainter.size.height;
 
-    // Nếu chiều cao nhỏ hơn ngưỡng, giữ nguyên 1 box
-    if (textPainter.size.height <= _maxBubbleHeightThreshold) {
+    // UI Spacing & Padding
+    const double verticalPadding = 16.0; // Top 8 + Bottom 8
+    const double spacing = 2.0;
+    const double timestampHeight = 12.0; // FontSize 10
+
+    return contentHeight + verticalPadding + spacing + timestampHeight;
+  }
+
+  /// Cắt động đoạn văn bản sao cho phần đầu tiên không vượt quá maxHeightThreshold.
+  /// Trả về [FirstPart, RemainingPart]
+  List<String> _takeFitChunk(String remainingText, double maxContentWidth, double maxHeightThreshold) {
+    List<String> words = remainingText.split(' ');
+
+    // Nếu toàn bộ văn bản còn lại đã nhỏ hơn ngưỡng -> không cần cắt thêm
+    if (_calculateBubbleHeight(remainingText, maxContentWidth) <= maxHeightThreshold) {
+      return [remainingText, ""];
+    }
+
+    int low = 1;
+    int high = words.length;
+    int bestFitIndex = 1;
+
+    // Tìm kiếm nhị phân (Binary Search) vị trí từ tối đa mà chiều cao bubble vẫn <= maxHeightThreshold
+    while (low <= high) {
+      int mid = (low + high) ~/ 2;
+      String testChunk = words.sublist(0, mid).join(' ');
+
+      if (_calculateBubbleHeight(testChunk, maxContentWidth) <= maxHeightThreshold) {
+        bestFitIndex = mid;
+        low = mid + 1; // Thử lấy thêm từ
+      } else {
+        high = mid - 1; // Quá cao, bớt từ đi
+      }
+    }
+
+    String fitPart = words.sublist(0, bestFitIndex).join(' ');
+    String restPart = words.sublist(bestFitIndex).join(' ');
+
+    return [fitPart, restPart];
+  }
+
+  /// Tách văn bản thành N phần box chat (1, 2, 3,... box) dựa trên ngưỡng chiều cao
+  List<String> _splitMessageIfNeeded(String originalText, double maxContentWidth, double maxHeightThreshold) {
+    // Nếu chiều cao tổng ban đầu <= Threshold -> giữ nguyên 1 box chat
+    if (_calculateBubbleHeight(originalText, maxContentWidth) <= maxHeightThreshold) {
       return [originalText];
     }
 
-    // Nếu vượt ngưỡng chiều cao, tiến hành tách thành 2 box
-    List<String> words = originalText.split(' ');
-    int midPoint = (words.length / 2).ceil();
+    List<String> resultChunks = [];
+    String currentText = originalText;
 
-    String firstPart = words.sublist(0, midPoint).join(' ');
-    String secondPart = words.sublist(midPoint).join(' ');
+    // Lặp để cắt các phần vừa vặn cho đến khi hết chuỗi
+    while (currentText.isNotEmpty) {
+      List<String> splitResult = _takeFitChunk(currentText, maxContentWidth, maxHeightThreshold);
+      resultChunks.add(splitResult[0]);
+      currentText = splitResult[1].trim();
+    }
 
-    return [firstPart, secondPart];
+    return resultChunks;
   }
 
   void _handleSendMessage() {
     String rawText = _messageController.text;
-
-    // Validate: chỉ chấp nhận tin nhắn có ký tự thực tế (không phải khoảng trắng)
     if (rawText.trim().isEmpty) return;
 
-    // 1. Cắt khoảng trắng 2 đầu
     String trimmedText = _trimLeadingTrailing(rawText);
 
-    // Tính toán chiều rộng tối đa của box chat (75% screen width - padding)
-    double maxChatWidth = (MediaQuery.of(context).size.width * 0.75) - 28;
+    double screenHeight = MediaQuery.of(context).size.height;
 
-    // 2. Chia chuỗi nếu vượt quá chiều cao cho phép
-    List<String> parts = _splitMessageIfNeeded(trimmedText, maxChatWidth);
+    // 1. CHỌN NGƯỠNG CHIỀU CAO (Height Threshold)
+    // Chọn khoảng 2/3 chiều cao màn hình (66%)
+    // Bạn cũng có thể test thử bằng cách đổi sang số cố định như 100.0 hoặc 200.0
+    double maxHeightThreshold = screenHeight * 0.66;
 
-    // 3. Làm mới ô nhập văn bản ngay lập tức
+    // Chiều rộng tối đa phần nội dung text trong Bubble
+    double maxBubbleWidth = MediaQuery.of(context).size.width * 0.75;
+    double maxContentWidth = maxBubbleWidth - 24.0; // Trừ Padding 12px mỗi bên
+
+    // 2. TÁCH THÀNH N BOX CHAT
+    List<String> parts = _splitMessageIfNeeded(trimmedText, maxContentWidth, maxHeightThreshold);
+
     _messageController.clear();
     setState(() {});
 
-    // 4. Thêm tin nhắn vào danh sách và kích hoạt hiệu ứng Float Up
+    final now = _getHanoiNow();
+
+    // 3. THÊM LẦN LƯỢT CÁC BOX CHAT VÀO DANH SÁCH
     for (int i = 0; i < parts.length; i++) {
-      Future.delayed(Duration(milliseconds: i * 150), () {
+      Future.delayed(Duration(milliseconds: i * 200), () {
         final newMessage = ChatMessage(
-          id: '${DateTime.now().millisecondsSinceEpoch}_$i',
+          id: '${now.millisecondsSinceEpoch}_$i',
           text: parts[i],
           isMe: true,
+          timestamp: now,
         );
 
         _messages.add(newMessage);
@@ -106,7 +216,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           duration: const Duration(milliseconds: 350),
         );
 
-        // Tự động cuộn xuống tin nhắn mới nhất
         _scrollToBottom();
       });
     }
@@ -158,40 +267,57 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             child: AnimatedList(
               key: _listKey,
               controller: _scrollController,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               initialItemCount: _messages.length,
               itemBuilder: (context, index, animation) {
                 final message = _messages[index];
+                final showHeader = _shouldShowDateHeader(index);
 
-                // Hiệu ứng Float Up (Trượt từ dưới lên + Mờ dần sang rõ)
-                final slideAnimation =
-                    Tween<Offset>(
-                      begin: const Offset(0, 0.4),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(
-                        parent: animation,
-                        curve:
-                            Curves.easeOutBack, // Sửa từ outBack thành backOut
-                      ),
-                    );
+                final slideAnimation = Tween<Offset>(
+                  begin: const Offset(0, 0.4),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutBack,
+                  ),
+                );
 
                 return SlideTransition(
                   position: slideAnimation,
                   child: FadeTransition(
                     opacity: animation,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: _buildChatBubble(message),
+                    child: Column(
+                      children: [
+                        if (showHeader) _buildDateHeader(message.timestamp),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: _buildChatBubble(message),
+                        ),
+                      ],
                     ),
                   ),
                 );
               },
             ),
           ),
-          // Thanh nhập tin nhắn dưới cùng
           _buildInputArea(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDateHeader(DateTime timestamp) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 16.0),
+      alignment: Alignment.center,
+      child: Text(
+        _formatDateHeader(timestamp),
+        style: TextStyle(
+          color: Colors.grey[600],
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -203,18 +329,40 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: message.isMe
               ? const Color(0xFF007AFF)
               : const Color(0xFFE5E5EA),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            fontSize: 15,
-            color: message.isMe ? Colors.white : Colors.black87,
+        child: IntrinsicWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                message.text,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: message.isMe ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Text(
+                    _formatTime(message.timestamp),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: message.isMe ? Colors.white : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -244,7 +392,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFEFF0),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFD1D1D6)),
                 ),
                 child: TextField(
@@ -259,7 +407,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            // Nút gửi tin nhắn (Chỉ bật màu khi có dữ liệu thực tế)
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: _messageController,
               builder: (context, value, child) {

@@ -32,7 +32,7 @@ class MenuBarChatListScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'User Account',
+                        'User account',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
