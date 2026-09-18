@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+import '../widgets/menu_bar_chat_list_screen.dart';
 import 'chat_detail_screen.dart';
-import 'menu_bar_chat_list_screen.dart'; // Import file menu vừa tạo
+
 
 String truncateMessage(String text, int limit) {
   if (text.length <= limit) {

@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/modals_options_chat/modal_icon_options_chat.dart';
+import '../widgets/modals_options_chat/modal_icons_reaction.dart';
+
+
 class ChatMessage {
   final String id;
   final String text;
   final bool isMe;
   final DateTime timestamp;
+  MessageReaction? reaction;
 
   ChatMessage({
     required this.id,
     required this.text,
     required this.isMe,
     required this.timestamp,
+    this.reaction,
   });
 }
 
@@ -27,7 +33,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
 
-  // Helper lấy thời gian Hà Nội (UTC+7)
   static DateTime _getHanoiNow() {
     return DateTime.now().toUtc().add(const Duration(hours: 7));
   }
@@ -101,7 +106,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return difference.inHours >= 20;
   }
 
-  /// Tính toán chiều cao tổng thể của 1 Box Chat Bubble dựa trên text và maxWidth
   double _calculateBubbleHeight(String text, double maxContentWidth) {
     final textPainter = TextPainter(
       text: TextSpan(
@@ -113,21 +117,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     )..layout(maxWidth: maxContentWidth);
 
     double contentHeight = textPainter.size.height;
-
-    // UI Spacing & Padding
-    const double verticalPadding = 16.0; // Top 8 + Bottom 8
+    const double verticalPadding = 16.0;
     const double spacing = 2.0;
-    const double timestampHeight = 12.0; // FontSize 10
+    const double timestampHeight = 12.0;
 
     return contentHeight + verticalPadding + spacing + timestampHeight;
   }
 
-  /// Cắt động đoạn văn bản sao cho phần đầu tiên không vượt quá maxHeightThreshold.
-  /// Trả về [FirstPart, RemainingPart]
   List<String> _takeFitChunk(String remainingText, double maxContentWidth, double maxHeightThreshold) {
     List<String> words = remainingText.split(' ');
 
-    // Nếu toàn bộ văn bản còn lại đã nhỏ hơn ngưỡng -> không cần cắt thêm
     if (_calculateBubbleHeight(remainingText, maxContentWidth) <= maxHeightThreshold) {
       return [remainingText, ""];
     }
@@ -136,16 +135,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     int high = words.length;
     int bestFitIndex = 1;
 
-    // Tìm kiếm nhị phân (Binary Search) vị trí từ tối đa mà chiều cao bubble vẫn <= maxHeightThreshold
     while (low <= high) {
       int mid = (low + high) ~/ 2;
       String testChunk = words.sublist(0, mid).join(' ');
 
       if (_calculateBubbleHeight(testChunk, maxContentWidth) <= maxHeightThreshold) {
         bestFitIndex = mid;
-        low = mid + 1; // Thử lấy thêm từ
+        low = mid + 1;
       } else {
-        high = mid - 1; // Quá cao, bớt từ đi
+        high = mid - 1;
       }
     }
 
@@ -155,9 +153,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return [fitPart, restPart];
   }
 
-  /// Tách văn bản thành N phần box chat (1, 2, 3,... box) dựa trên ngưỡng chiều cao
   List<String> _splitMessageIfNeeded(String originalText, double maxContentWidth, double maxHeightThreshold) {
-    // Nếu chiều cao tổng ban đầu <= Threshold -> giữ nguyên 1 box chat
     if (_calculateBubbleHeight(originalText, maxContentWidth) <= maxHeightThreshold) {
       return [originalText];
     }
@@ -165,7 +161,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     List<String> resultChunks = [];
     String currentText = originalText;
 
-    // Lặp để cắt các phần vừa vặn cho đến khi hết chuỗi
     while (currentText.isNotEmpty) {
       List<String> splitResult = _takeFitChunk(currentText, maxContentWidth, maxHeightThreshold);
       resultChunks.add(splitResult[0]);
@@ -182,17 +177,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     String trimmedText = _trimLeadingTrailing(rawText);
 
     double screenHeight = MediaQuery.of(context).size.height;
-
-    // 1. CHỌN NGƯỠNG CHIỀU CAO (Height Threshold)
-    // Chọn khoảng 2/3 chiều cao màn hình (66%)
-    // Bạn cũng có thể test thử bằng cách đổi sang số cố định như 100.0 hoặc 200.0
     double maxHeightThreshold = screenHeight * 0.66;
-
-    // Chiều rộng tối đa phần nội dung text trong Bubble
     double maxBubbleWidth = MediaQuery.of(context).size.width * 0.75;
-    double maxContentWidth = maxBubbleWidth - 24.0; // Trừ Padding 12px mỗi bên
+    double maxContentWidth = maxBubbleWidth - 24.0;
 
-    // 2. TÁCH THÀNH N BOX CHAT
     List<String> parts = _splitMessageIfNeeded(trimmedText, maxContentWidth, maxHeightThreshold);
 
     _messageController.clear();
@@ -200,7 +188,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     final now = _getHanoiNow();
 
-    // 3. THÊM LẦN LƯỢT CÁC BOX CHAT VÀO DANH SÁCH
     for (int i = 0; i < parts.length; i++) {
       Future.delayed(Duration(milliseconds: i * 200), () {
         final newMessage = ChatMessage(
@@ -222,7 +209,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
@@ -231,6 +218,132 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         );
       }
     });
+  }
+
+  // Hiển thị Overlay chính xác vị trí đang đứng
+  void _showContextMenu(ChatMessage message, BuildContext itemContext) {
+    final renderBox = itemContext.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // Kiểm tra xem vị trí có bị tràn màn hình dưới hay không
+    bool isBottomOverflow = offset.dy + size.height + 260 > screenHeight;
+    double topPosition = isBottomOverflow
+        ? (screenHeight - 320).clamp(20.0, screenHeight)
+        : offset.dy;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: const Color(0x99000000), // Nền tối 60% opacity
+      transitionDuration: const Duration(milliseconds: 150),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                behavior: HitTestBehavior.opaque,
+                child: const SizedBox.expand(),
+              ),
+              Positioned(
+                top: topPosition,
+                left: message.isMe ? null : offset.dx,
+                right: message.isMe ? (screenWidth - offset.dx - size.width) : null,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: message.isMe
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: [
+                    // Box Chat trùng khớp với kích thước vị trí cũ
+                    Container(
+                      width: size.width,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: message.isMe
+                            ? const Color(0xFF007AFF)
+                            : const Color(0xFFE5E5EA),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            message.text,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: message.isMe ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            mainAxisAlignment: message.isMe
+                                ? MainAxisAlignment.end
+                                : MainAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.max,
+                            children: [
+                              Text(
+                                _formatTime(message.timestamp),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: message.isMe ? Colors.white54 : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Modal Reactions
+                    ModalIconsReaction(
+                      onReactionSelected: (selectedReaction) {
+                        setState(() {
+                          message.reaction = selectedReaction;
+                        });
+                        Navigator.pop(context);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Modal Options
+                    ModalIconOptionsChat(
+                      onReply: () => Navigator.pop(context),
+                      onForward: () => Navigator.pop(context),
+                      onCopy: () => Navigator.pop(context),
+                      onDelete: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          int index = _messages.indexOf(message);
+                          if (index != -1) {
+                            final removedItem = _messages.removeAt(index);
+                            _listKey.currentState?.removeItem(
+                              index,
+                                  (context, animation) => SizeTransition(
+                                sizeFactor: animation,
+                                child: _buildChatBubble(removedItem),
+                              ),
+                            );
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -325,46 +438,96 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget _buildChatBubble(ChatMessage message) {
     return Align(
       alignment: message.isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: message.isMe
-              ? const Color(0xFF007AFF)
-              : const Color(0xFFE5E5EA),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: IntrinsicWidth(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                message.text,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: message.isMe ? Colors.white : Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Text(
-                    _formatTime(message.timestamp),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: message.isMe ? Colors.white : Colors.black54,
+      child: Builder(
+        builder: (bubbleContext) {
+          bool isLongPressHandled = false;
+
+          return GestureDetector(
+            // Đảm bảo thời gian giữ chính xác 800 mili-giây
+            onTapDown: (_) {
+              isLongPressHandled = false;
+              Future.delayed(const Duration(milliseconds: 800), () {
+                if (!isLongPressHandled) {
+                  isLongPressHandled = true;
+                  _showContextMenu(message, bubbleContext);
+                }
+              });
+            },
+            onTapUp: (_) => isLongPressHandled = true,
+            onTapCancel: () => isLongPressHandled = true,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.75,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: message.isMe
+                        ? const Color(0xFF007AFF)
+                        : const Color(0xFFE5E5EA),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          message.text,
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: message.isMe ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisAlignment: message.isMe
+                              ? MainAxisAlignment.end
+                              : MainAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            Text(
+                              _formatTime(message.timestamp),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: message.isMe ? Colors.white54 : Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
-        ),
+                ),
+                if (message.reaction != null)
+                  Positioned(
+                    bottom: -8,
+                    right: message.isMe ? null : -5,
+                    left: message.isMe ? -5 : null,
+                    child: Container(
+                      width: 26, // Chiều rộng cố định
+                      height: 26, // Chiều cao cố định
+                      alignment: Alignment.center, // Căn giữa icon
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black12, blurRadius: 4)
+                        ],
+                      ),
+                      child: Text(
+                        message.reaction!.value,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
