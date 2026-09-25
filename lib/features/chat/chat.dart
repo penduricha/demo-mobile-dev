@@ -1,2 +1,2 @@
-export '../chat/presentation/screens/chat_detail_screen.dart';
-export '../chat/presentation/screens/chat_list_screen.dart';
+export '../chat/presentation/screens/screen_detail_chat.dart';
+export '../chat/presentation/screens/screen_list_chat.dart';

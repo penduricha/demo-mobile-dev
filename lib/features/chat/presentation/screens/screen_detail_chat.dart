@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/modals_options_chat/modal_icon_options_chat.dart';
+import '../widgets/modals_options_chat/modal_detail_reaction_box_chat.dart';
+import '../widgets/modals_options_chat/modal_options_box_chat.dart';
 import '../widgets/modals_options_chat/modal_icons_reaction.dart';
-
 
 class ChatMessage {
   final String id;
   final String text;
   final bool isMe;
   final DateTime timestamp;
-  MessageReaction? reaction;
+  List<ReactionUser> reactions;
 
   ChatMessage({
     required this.id,
     required this.text,
     required this.isMe,
     required this.timestamp,
-    this.reaction,
-  });
+    List<ReactionUser>? reactions,
+  }) : reactions = reactions ?? [];
 }
 
 class ChatDetailScreen extends StatefulWidget {
@@ -29,6 +29,8 @@ class ChatDetailScreen extends StatefulWidget {
 }
 
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
+  final String currentUserId = '1'; // Giả lập ID tài khoản hiện tại là 1
+
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
@@ -50,12 +52,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'Your verification code is: 849201. Do not share this code with anyone for security reasons.',
         isMe: false,
         timestamp: hanoiNow.subtract(const Duration(days: 2)),
+        reactions: [
+          // Tai khoan nguoi gui
+          ReactionUser(
+            userId: '2',
+            userName: widget.senderName,
+            avatarUrl: 'https://i.pravatar.cc/150?img=1',
+            emoji: '👍',
+          ),
+        ],
       ),
       ChatMessage(
         id: '2',
         text: 'Hello, this is yesterday message.',
         isMe: false,
         timestamp: hanoiNow.subtract(const Duration(hours: 26)),
+        reactions: [
+          ReactionUser(
+            userId: currentUserId,
+            userName: 'Tôi',
+            avatarUrl: 'https://i.pravatar.cc/150?img=5',
+            emoji: '❤️',
+          ),
+        ],
       ),
     ];
   }
@@ -124,10 +143,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return contentHeight + verticalPadding + spacing + timestampHeight;
   }
 
-  List<String> _takeFitChunk(String remainingText, double maxContentWidth, double maxHeightThreshold) {
+  List<String> _takeFitChunk(
+      String remainingText, double maxContentWidth, double maxHeightThreshold) {
     List<String> words = remainingText.split(' ');
 
-    if (_calculateBubbleHeight(remainingText, maxContentWidth) <= maxHeightThreshold) {
+    if (_calculateBubbleHeight(remainingText, maxContentWidth) <=
+        maxHeightThreshold) {
       return [remainingText, ""];
     }
 
@@ -139,7 +160,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       int mid = (low + high) ~/ 2;
       String testChunk = words.sublist(0, mid).join(' ');
 
-      if (_calculateBubbleHeight(testChunk, maxContentWidth) <= maxHeightThreshold) {
+      if (_calculateBubbleHeight(testChunk, maxContentWidth) <=
+          maxHeightThreshold) {
         bestFitIndex = mid;
         low = mid + 1;
       } else {
@@ -153,8 +175,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return [fitPart, restPart];
   }
 
-  List<String> _splitMessageIfNeeded(String originalText, double maxContentWidth, double maxHeightThreshold) {
-    if (_calculateBubbleHeight(originalText, maxContentWidth) <= maxHeightThreshold) {
+  List<String> _splitMessageIfNeeded(
+      String originalText, double maxContentWidth, double maxHeightThreshold) {
+    if (_calculateBubbleHeight(originalText, maxContentWidth) <=
+        maxHeightThreshold) {
       return [originalText];
     }
 
@@ -162,7 +186,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     String currentText = originalText;
 
     while (currentText.isNotEmpty) {
-      List<String> splitResult = _takeFitChunk(currentText, maxContentWidth, maxHeightThreshold);
+      List<String> splitResult =
+      _takeFitChunk(currentText, maxContentWidth, maxHeightThreshold);
       resultChunks.add(splitResult[0]);
       currentText = splitResult[1].trim();
     }
@@ -181,7 +206,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     double maxBubbleWidth = MediaQuery.of(context).size.width * 0.75;
     double maxContentWidth = maxBubbleWidth - 24.0;
 
-    List<String> parts = _splitMessageIfNeeded(trimmedText, maxContentWidth, maxHeightThreshold);
+    List<String> parts = _splitMessageIfNeeded(
+        trimmedText, maxContentWidth, maxHeightThreshold);
 
     _messageController.clear();
     setState(() {});
@@ -220,7 +246,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
   }
 
-  // Hiển thị Overlay chính xác vị trí đang đứng
+  // Hiển thị Overlay Popup khi giữ tin nhắn
   void _showContextMenu(ChatMessage message, BuildContext itemContext) {
     final renderBox = itemContext.findRenderObject() as RenderBox;
     final offset = renderBox.localToGlobal(Offset.zero);
@@ -229,7 +255,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // Kiểm tra xem vị trí có bị tràn màn hình dưới hay không
     bool isBottomOverflow = offset.dy + size.height + 260 > screenHeight;
     double topPosition = isBottomOverflow
         ? (screenHeight - 320).clamp(20.0, screenHeight)
@@ -239,7 +264,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
-      barrierColor: const Color(0x99000000), // Nền tối 60% opacity
+      barrierColor: const Color(0x99000000),
       transitionDuration: const Duration(milliseconds: 150),
       pageBuilder: (context, animation, secondaryAnimation) {
         return Material(
@@ -261,10 +286,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
-                    // Box Chat trùng khớp với kích thước vị trí cũ
                     Container(
                       width: size.width,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: message.isMe
                             ? const Color(0xFF007AFF)
@@ -293,7 +318,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 _formatTime(message.timestamp),
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: message.isMe ? Colors.white54 : Colors.black54,
+                                  color: message.isMe
+                                      ? Colors.white54
+                                      : Colors.black54,
                                 ),
                               ),
                             ],
@@ -307,7 +334,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     ModalIconsReaction(
                       onReactionSelected: (selectedReaction) {
                         setState(() {
-                          message.reaction = selectedReaction;
+                          // Loại bỏ cảm xúc cũ của user nếu có
+                          message.reactions
+                              .removeWhere((r) => r.userId == currentUserId);
+                          // Thêm cảm xúc mới
+                          message.reactions.add(
+                            ReactionUser(
+                              userId: currentUserId,
+                              userName: 'Tôi',
+                              avatarUrl: 'https://i.pravatar.cc/150?img=5',
+                              emoji: selectedReaction.value,
+                            ),
+                          );
                         });
                         Navigator.pop(context);
                       },
@@ -341,6 +379,26 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  // Hiển thị Bottom Sheet kéo lên xem chi tiết reactions
+  void _showReactionDetailModal(ChatMessage message) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return ModalDetailReactionBoxChat(
+          reactions: message.reactions,
+          currentUserId: currentUserId,
+          onRemoveReaction: () {
+            setState(() {
+              message.reactions.removeWhere((r) => r.userId == currentUserId);
+            });
+          },
         );
       },
     );
@@ -443,7 +501,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           bool isLongPressHandled = false;
 
           return GestureDetector(
-            // Đảm bảo thời gian giữ chính xác 800 mili-giây
             onTapDown: (_) {
               isLongPressHandled = false;
               Future.delayed(const Duration(milliseconds: 800), () {
@@ -462,7 +519,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.75,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: message.isMe
                         ? const Color(0xFF007AFF)
@@ -492,7 +550,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               _formatTime(message.timestamp),
                               style: TextStyle(
                                 fontSize: 10,
-                                color: message.isMe ? Colors.white54 : Colors.black54,
+                                color: message.isMe
+                                    ? Colors.white54
+                                    : Colors.black54,
                               ),
                             ),
                           ],
@@ -501,26 +561,50 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     ),
                   ),
                 ),
-                if (message.reaction != null)
+
+                // Icon Reaction hiển thị trên tin nhắn
+                if (message.reactions.isNotEmpty)
                   Positioned(
                     bottom: -8,
                     right: message.isMe ? null : -5,
                     left: message.isMe ? -5 : null,
-                    child: Container(
-                      width: 26, // Chiều rộng cố định
-                      height: 26, // Chiều cao cố định
-                      alignment: Alignment.center, // Căn giữa icon
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: Colors.black12, blurRadius: 4)
-                        ],
-                      ),
-                      child: Text(
-                        message.reaction!.value,
-                        style: const TextStyle(fontSize: 14),
+                    child: GestureDetector(
+                      onTap: () => _showReactionDetailModal(message),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center, // Sửa tại đây
+                          children: [
+                            Text(
+                              message.reactions.last.emoji,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            if (message.reactions.length > 1) ...[
+                              const SizedBox(width: 3),
+                              Text(
+                                '${message.reactions.length}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -576,7 +660,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 final hasText = value.text.trim().isNotEmpty;
                 return Container(
                   decoration: BoxDecoration(
-                    color: hasText ? const Color(0xFF007AFF) : Colors.grey[300],
+                    color:
+                    hasText ? const Color(0xFF007AFF) : Colors.grey[300],
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
